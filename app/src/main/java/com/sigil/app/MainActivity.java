@@ -1,6 +1,8 @@
 package com.sigil.app;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,6 +13,7 @@ import androidx.webkit.WebViewAssetLoader;
 public class MainActivity extends Activity {
     private WebView web;
     private ValueCallback<Uri[]> pending;
+    private PermissionRequest permReq;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -32,6 +35,12 @@ public class MainActivity extends Activity {
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
+            @Override public void onPermissionRequest(final PermissionRequest r) {
+                runOnUiThread(() -> {
+                    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) r.grant(r.getResources());
+                    else { permReq = r; requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 2); }
+                });
+            }
             @Override public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams p) {
                 if (pending != null) pending.onReceiveValue(null);
                 pending = cb;
@@ -47,6 +56,14 @@ public class MainActivity extends Activity {
         if (req == 1 && pending != null) {
             pending.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res, data));
             pending = null;
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int c, String[] p, int[] g) {
+        if (c == 2 && permReq != null) {
+            if (g.length > 0 && g[0] == PackageManager.PERMISSION_GRANTED) permReq.grant(permReq.getResources());
+            else permReq.deny();
+            permReq = null;
         }
     }
 }
